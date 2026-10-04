@@ -65,7 +65,8 @@ jobs:
   build:
     name: Build
     needs: lint
-    runs-on: windows-2025
+    # FIXED: Downgraded runner environments to provide native Visual Studio 2022 tools
+    runs-on: windows-2022
     env:
       POWERSHELL_TELEMETRY_OPTOUT: 1
     steps:
@@ -74,9 +75,9 @@ jobs:
           fetch-depth: 0
       - name: Setup
         run: git submodule update --init --depth=1 -j $env:NUMBER_OF_PROCESSORS (Select-String -CaseSensitive '(?<=path = )(?!third_party\/(FidelityFX-(CAS|FSR)|premake-(androidndk|cmake|export-compile-commands))).+' .gitmodules).Matches.Value
-      # FIXED: Passed the fallback toolset parameter to target VS2022 compatibility layer inside MSVC
+      # FIXED: Reverted command back to stable format
       - name: Build
-        run: python xenia-build.py build --config=Release --target=src\xenia-app --toolset=vs2022
+        run: python xenia-build.py build --config=Release --target=src\xenia-app
       - name: Prepare artifacts
         id: prepare_artifacts
         run: |
