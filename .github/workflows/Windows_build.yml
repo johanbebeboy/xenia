@@ -97,7 +97,7 @@ jobs:
     if: |
       github.repository == 'xenia-canary/xenia-canary' &&
       github.event.action != 'pull_request' &&
-      github.ref == 'refs/heads/canary_experimental'
+      github.ref == 'refs/heads/GibbedAvatars'
     uses: ./.github/workflows/Create_release.yml
     with:
       os: windows
