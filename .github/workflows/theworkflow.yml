@@ -1,0 +1,111 @@
+name: Windows build
+
+on:
+  push:
+    paths-ignore:
+      - '.clang-format'
+      - '.drone.star'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.gdbinit'
+      - '.github/*'
+      - '.github/workflows/Linux_build.yml'
+      - '.github/*_TEMPLATE/**'
+      - '*.md'
+      - '*.yml'
+      - '*.txt'
+      - 'docs/**'
+      - 'src/**/*_posix.*'
+      - 'src/**/*_linux.*'
+      - 'src/**/*_gnulinux.*'
+      - 'src/**/*_x11.*'
+      - 'src/**/*_gtk.*'
+      - 'src/**/*_android.*'
+      - 'src/**/*_mac.*'
+      - 'LICENSE'
+  pull_request:
+    paths-ignore:
+      - '.clang-format'
+      - '.drone.star'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.gdbinit'
+      - '.github/*'
+      - '.github/workflows/Linux_build.yml'
+      - '.github/*_TEMPLATE/**'
+      - '*.md'
+      - '*.yml'
+      - '*.txt'
+      - 'docs/**'
+      - 'src/**/*_posix.*'
+      - 'src/**/*_linux.*'
+      - 'src/**/*_gnulinux.*'
+      - 'src/**/*_x11.*'
+      - 'src/**/*_gtk.*'
+      - 'src/**/*_android.*'
+      - 'src/**/*_mac.*'
+      - 'LICENSE'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: windows-latest
+    env:
+      POWERSHELL_TELEMETRY_OPTOUT: 1
+    steps:
+      - uses: actions/checkout@main
+      - name: Install clang-format
+        run: |
+          choco install llvm --version=19.1.0 -y --no-progress --allow-downgrade --force
+          echo "C:\Program Files\LLVM\bin" >> $GITHUB_PATH
+      - name: Lint
+        run: python xenia-build.py lint --all
+
+  build:
+    name: Build
+    needs: lint
+    # FIXED: Downgraded runner environments to provide native Visual Studio 2022 tools
+    runs-on: windows-2022
+    env:
+      POWERSHELL_TELEMETRY_OPTOUT: 1
+    steps:
+      - uses: actions/checkout@main
+        with:
+          fetch-depth: 0
+      - name: Setup
+        run: git submodule update --init --depth=1 -j $env:NUMBER_OF_PROCESSORS (Select-String -CaseSensitive '(?<=path = )(?!third_party\/(FidelityFX-(CAS|FSR)|premake-(androidndk|cmake|export-compile-commands))).+' .gitmodules).Matches.Value
+      # FIXED: Reverted command back to stable format
+      - name: Build
+        run: python xenia-build.py build --config=Release --target=src\xenia-app
+      - name: Prepare artifacts
+        id: prepare_artifacts
+        run: |
+          foreach ($file in 'build\bin\Windows\Release\xenia_canary.exe','build\bin\Windows\Release\xenia_canary.pdb') {
+            if ((get-item $file).Length -le 100000) {
+              echo "::error::$file is too small."
+            }
+          }
+          robocopy . build\bin\Windows\Release                                                                LICENSE /r:0 /w:0
+          robocopy   build\bin\Windows\Release artifacts\xenia_canary   xenia_canary.exe   xenia_canary.pdb   LICENSE /r:0 /w:0
+          If ($LastExitCode -le 7) { echo "LastExitCode = $LastExitCode";$LastExitCode = 0 }
+      - name: Upload xenia canary artifacts
+        if: steps.prepare_artifacts.outcome == 'success'
+        uses: actions/upload-artifact@main
+        with:
+          name: xenia_canary_windows
+          path: artifacts\xenia_canary
+          if-no-files-found: error
+
+  create-release:
+    name: Create release
+    needs: [lint, build]
+    # BULLETPROOF FIX: Removed broken repository and event checks to ensure it triggers every time on this branch
+    if: github.ref == 'refs/heads/GibbedAvatars'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/Create_release.yml
+    with:
+      os: windows
+    secrets:
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
