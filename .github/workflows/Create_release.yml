@@ -14,11 +14,12 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      #- uses: actions/checkout@main
-      #  with:
-      #    repository: ${{ github.repository_owner }}/xenia-canary-releases
-      - uses: actions/download-artifact@main
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true # Flattens all files into the root directory instead of nested folders
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -28,10 +29,13 @@ jobs:
           case ${{ inputs.os }} in
             windows)
               asset=xenia_canary_${{ inputs.os }}.zip
-              7z a $asset -xr!'*.pdb' -mx9 -bb3
+              # Finds files in the root folder and compresses them
+              7z a $asset * -xr!'*.pdb' -mx9 -bb3
               ;;
             linux)
               asset=xenia_canary_${{ inputs.os }}.tar.xz
+              # FIXED: Added the missing compression command for linux
+              tar -cJf $asset *
               ;;
           esac
           if [ ! -f $asset ]; then
@@ -47,14 +51,14 @@ jobs:
           create_or_edit_release() {
             local tag=$1
             local title=$2
-            if gh release view $tag; then
-              gh release edit $tag -t $title -n "$notes"
-              gh release upload $tag $asset --clobber
+            # Safe checking to prevent silent Bash crashes
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release edit "$tag" -t "$title" -n "$notes"
+              gh release upload "$tag" "$asset" --clobber
             else
-              # Changed --target from a hardcoded SHA to the GibbedAvatars branch
-              gh release create $tag $asset --target GibbedAvatars -t $title -n "$notes"
+              gh release create "$tag" "$asset" --target GibbedAvatars -t "$title" -n "$notes"
             fi
           }
           tag=${GITHUB_SHA::7}
-          create_or_edit_release $tag ${tag}_$GITHUB_REF_NAME
-          create_or_edit_release $GITHUB_REF_NAME $tag
+          create_or_edit_release "$tag" "${tag}_$GITHUB_REF_NAME"
+          create_or_edit_release "$GITHUB_REF_NAME" "$tag"
