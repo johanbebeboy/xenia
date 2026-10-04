@@ -95,9 +95,12 @@ jobs:
     name: Create release
     needs: [lint, build]
     if: |
-      github.repository == 'xenia-canary/xenia-canary' &&
+      github.repository == 'xenia-canary/xenia-canary' || github.repository == 'johanbebeboy/xenia' &&
       github.event.action != 'pull_request' &&
       github.ref == 'refs/heads/GibbedAvatars'
+    # FIXED: Added required content writing permissions for the downstream workflow
+    permissions:
+      contents: write
     uses: ./.github/workflows/Create_release.yml
     with:
       os: windows
