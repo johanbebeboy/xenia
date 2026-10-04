@@ -55,10 +55,10 @@ jobs:
       POWERSHELL_TELEMETRY_OPTOUT: 1
     steps:
       - uses: actions/checkout@main
-      # FIXED: Added installation of LLVM/Clang-format and refreshed environment variables
+      # FIXED: Added --allow-downgrade and --force parameters to overwrite v20 with v19.1.0
       - name: Install clang-format
         run: |
-          choco install llvm --version=19.1.0 -y --no-progress
+          choco install llvm --version=19.1.0 -y --no-progress --allow-downgrade --force
           echo "C:\Program Files\LLVM\bin" >> $GITHUB_PATH
       - name: Lint
         run: python xenia-build.py lint --all
